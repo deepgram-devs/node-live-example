@@ -23,28 +23,36 @@ const { Deepgram } = pkg;
 let deepgram;
 let dgLiveObj;
 let io;
+let globalSocket;
+
+const initDgConnection = (disconnect) => {
+  dgLiveObj = createNewDeepgramLive(deepgram);
+  addDeepgramTranscriptListener(dgLiveObj);
+  addDeepgramOpenListener(dgLiveObj);
+  addDeepgramCloseListener(dgLiveObj);
+  addDeepgramErrorListener(dgLiveObj);
+  if (disconnect) {
+    globalSocket.removeAllListeners();
+  }
+
+  globalSocket.on("dg-close", async (msg) =>
+    dgLiveObj.send(JSON.stringify({ type: "CloseStream" }))
+  );
+  globalSocket.on("dg-open", async (msg, callback) =>
+    dgReopen(msg).then((status) => callback(status))
+  );
+  globalSocket.on("packet-sent", async (event) =>
+    dgPacketResponse(event, dgLiveObj)
+  );
+};
 
 const createWebsocket = () => {
   io = new Server(httpServer, { transports: "websocket" });
   io.on("connection", (socket) => {
     console.log(`Connected on server side with ID: ${socket.id}`);
+    globalSocket = socket;
     deepgram = createNewDeepgram();
-    dgLiveObj = createNewDeepgramLive(deepgram);
-    console.log("dgLiveObj", dgLiveObj, socket.id);
-    addDeepgramTranscriptListener(dgLiveObj);
-    addDeepgramOpenListener(dgLiveObj);
-    addDeepgramCloseListener(dgLiveObj);
-    addDeepgramErrorListener(dgLiveObj);
-
-    socket.on("dg-close", async (msg) =>
-      dgLiveObj.send(JSON.stringify({ type: "CloseStream" }))
-    );
-    socket.on("dg-open", async (msg, callback) =>
-      dgReopen(msg).then((status) => callback(status))
-    );
-    socket.on("packet-sent", async (event) =>
-      dgPacketResponse(event, dgLiveObj)
-    );
+    initDgConnection(false);
   });
 };
 
@@ -89,14 +97,15 @@ const addDeepgramErrorListener = (dg) => {
 
 const dgReopen = async (msg) => {
   console.log(`Reopen message is: ${msg.message}`);
-  createWebsocket();
+  initDgConnection(true);
 
   return "let's go!";
 };
 
 const dgPacketResponse = (event, dg) => {
-  console.log(`Packet Received from client. DG STATE: ${dg.getReadyState()}`);
-  if (dg.getReadyState() === 1) dg.send(event);
+  if (dg.getReadyState() === 1) {
+    dg.send(event);
+  }
 };
 
 httpServer.listen(3000);

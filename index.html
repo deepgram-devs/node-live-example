@@ -80,26 +80,19 @@
                 console.log("SENDING PACKET TO SERVER");
                 socket.emit("packet-sent", event.data);
               });
-
               $(".send-dg-close").click(function (e) {
                 socket.emit("dg-close");
                 mediaRecorder.pause();
               });
 
               $(".send-dg-open").click(function (e) {
-                mediaRecorder.pause();
-                socket.disconnect();
-                socket.connect();
+                mediaRecorder.stop();
                 socket.emit(
                   "dg-open",
                   { message: "dg-open" },
-                  async (response) => console.log(response)
+                  async (response) => {
+                    mediaRecorder.start(500);}
                 );
-
-                setTimeout(() => {
-                  console.log("Rsuming Media Recorder");
-                  mediaRecorder.resume();
-                }, 1000);
               });
             });
           });
