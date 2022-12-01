@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Deepgram Test</title>
+    <script
+      src="https://cdn.socket.io/4.5.3/socket.io.min.js"
+      integrity="sha384-WPFUvHkB1aHA5TDSZi6xtDgkF0wXJcIIxXhC6h8OT8EH3fC5PWro5pWJ1THjcfEi"
+      crossorigin="anonymous"
+    ></script>
+    <script
+      src="https://kit.fontawesome.com/aabf17dcb4.js"
+      crossorigin="anonymous"
+    ></script>
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/bulma@0.9.4/css/bulma.min.css"
+    />
+    <!-- <script src="BulmaJS-0.12.0/dist/bulma.js"></script> -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.1/jquery.min.js"></script>
+  </head>
+  <body>
+    <div class="columns">
+      <div class="column is-5">
+        <p class="box">foo</p>
+        <div class="container">
+          <a class="button pause-media-recorder">Pause Media Recorder</a>
+          <a class="button resume-media-recorder">Resume Media Recorder</a>
+          <br />
+          <a class="button state-media-recorder">Give Media Recorder state</a>
+        </div>
+        <br />
+        <div class="container">
+          <a class="button send-dg-close">Send DG CLOSE Command</a>
+          <a class="button send-dg-open">Send DG OPEN Command</a>
+        </div>
+      </div>
+    </div>
+    <article class="message mr-state-message">
+      <div class="message-header">
+        <p>Current Media Recorder state</p>
+        <button class="delete" aria-label="delete"></button>
+      </div>
+      <div class="message-body">bar</div>
+    </article>
+    <script>
+      let socket;
+      let mediaRecorder;
+
+      console.log("STARTING STREAM");
+      $(".pause-media-recorder").click(function (e) {
+        mediaRecorder.pause();
+      });
+
+      $(".resume-media-recorder").click(function (e) {
+        mediaRecorder.resume();
+      });
+
+      $(".state-media-recorder").click(function (e) {
+        $(".mr-state-message .message-body").text(mediaRecorder.state);
+      });
+
+      const startStream = () => {
+        navigator.mediaDevices
+          .getUserMedia({ audio: true })
+          .then((stream) => {
+            mediaRecorder = new MediaRecorder(stream);
+            socket = io((options = { transports: ["websocket"] }));
+          })
+          .then(() => {
+            socket.on("connect", async () => {
+              console.log("CONNECTED");
+              console.log(`Socket ID on Client side: ${socket.id}`);
+              if (mediaRecorder.state == "inactive") mediaRecorder.start(500);
+
+              $(".mr-state-message .message-body").text(mediaRecorder.state);
+
+              mediaRecorder.addEventListener("dataavailable", (event) => {
+                console.log("DATA AVAILABLE", event.data);
+                console.log("SENDING PACKET TO SERVER");
+                socket.emit("packet-sent", event.data);
+              });
+
+              $(".send-dg-close").click(function (e) {
+                socket.emit("dg-close");
+                mediaRecorder.pause();
+              });
+
+              $(".send-dg-open").click(function (e) {
+                mediaRecorder.pause();
+                socket.disconnect();
+                socket.connect();
+                socket.emit(
+                  "dg-open",
+                  { message: "dg-open" },
+                  async (response) => console.log(response)
+                );
+
+                setTimeout(() => {
+                  console.log("Rsuming Media Recorder");
+                  mediaRecorder.resume();
+                }, 1000);
+              });
+            });
+          });
+      };
+
+      startStream();
+    </script>
+  </body>
+</html>
