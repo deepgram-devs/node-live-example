@@ -52,7 +52,7 @@ const createWebsocket = () => {
 };
 
 const createNewDeepgram = () =>
-  new Deepgram("33cb25c47b65f77cae6e29f84c0d9479bbe02f02");
+  new Deepgram("YOUR_API_KEY");
 const createNewDeepgramLive = (dg) =>
   dg.transcription.live({
     language: "en",
