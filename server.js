@@ -1,6 +1,4 @@
-// import * as dotenv from "dotenv";
-// dotenv.config({ path: "~/.env" });
-// console.log("process", process.env.DEEPGRAM_API_KEY);
+
 import path from "path";
 import { fileURLToPath } from "url";
 
@@ -23,24 +21,21 @@ const { Deepgram } = pkg;
 let deepgram;
 let dgLiveObj;
 let io;
+// make socket global so we can access it from anywhere
 let globalSocket;
 
+// Pull out connection logic so we can call it outside of the socket connection event
 const initDgConnection = (disconnect) => {
   dgLiveObj = createNewDeepgramLive(deepgram);
   addDeepgramTranscriptListener(dgLiveObj);
   addDeepgramOpenListener(dgLiveObj);
   addDeepgramCloseListener(dgLiveObj);
   addDeepgramErrorListener(dgLiveObj);
+  // clear event listeners
   if (disconnect) {
     globalSocket.removeAllListeners();
   }
-
-  globalSocket.on("dg-close", async (msg) =>
-    dgLiveObj.send(JSON.stringify({ type: "CloseStream" }))
-  );
-  globalSocket.on("dg-open", async (msg, callback) =>
-    dgReopen(msg).then((status) => callback(status))
-  );
+  // receive data from client and send to dgLive
   globalSocket.on("packet-sent", async (event) =>
     dgPacketResponse(event, dgLiveObj)
   );
@@ -56,24 +51,33 @@ const createWebsocket = () => {
   });
 };
 
-const createNewDeepgram = () => new Deepgram("YOUR_API_KEY");
+const createNewDeepgram = () =>
+  new Deepgram("33cb25c47b65f77cae6e29f84c0d9479bbe02f02");
 const createNewDeepgramLive = (dg) =>
-  dg.transcription.live({ punctuate: true });
+  dg.transcription.live({
+    language: "en",
+    punctuate: true,
+    smart_format: true,
+    model: "nova",
+  });
 
 const addDeepgramTranscriptListener = (dg) => {
-  console.log("addDeepgramTranscriptListener");
   dg.addListener("transcriptReceived", async (dgOutput) => {
-    console.log("transcriptReceived listener event");
     let dgJSON = JSON.parse(dgOutput);
     let utterance;
     try {
-      console.log(dgJSON.metadata.request_id);
       utterance = dgJSON.channel.alternatives[0].transcript;
     } catch (error) {
-      console.log("WARNING: parsing dgJSON failed. Response from dgLive is:");
+      console.log(
+        "WARNING: parsing dgJSON failed. Response from dgLive is:",
+        error
+      );
       console.log(dgJSON);
     }
-    if (utterance) console.log(`NEW UTTERANCE: ${utterance}`);
+    if (utterance) {
+      globalSocket.emit("print-transcript", utterance);
+      console.log(`NEW UTTERANCE: ${utterance}`);
+    }
   });
 };
 
@@ -84,22 +88,16 @@ const addDeepgramOpenListener = (dg) => {
 };
 
 const addDeepgramCloseListener = (dg) => {
-  dg.addListener("close", async (msg) =>
-    console.log(`dgLive CONNECTION CLOSED!`)
-  );
+  dg.addListener("close", async (msg) => {
+    console.log(`dgLive CONNECTION CLOSED!`);
+  });
 };
 
 const addDeepgramErrorListener = (dg) => {
-  dg.addListener("error", async (msg) =>
-    console.log(`dgLive ERROR::Type:${msg.type} / Code:${msg.code}`)
-  );
-};
-
-const dgReopen = async (msg) => {
-  console.log(`Reopen message is: ${msg.message}`);
-  initDgConnection(true);
-
-  return "let's go!";
+  dg.addListener("error", async (msg) => {
+    console.log("ERROR MESG", msg);
+    console.log(`dgLive ERROR::Type:${msg.type} / Code:${msg.code}`);
+  });
 };
 
 const dgPacketResponse = (event, dg) => {
