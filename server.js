@@ -1,6 +1,6 @@
-
 import path from "path";
 import { fileURLToPath } from "url";
+import 'dotenv/config'
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -52,7 +52,7 @@ const createWebsocket = () => {
 };
 
 const createNewDeepgram = () =>
-  new Deepgram("YOUR_API_KEY");
+  new Deepgram(process.env.DEEPGRAM_API_KEY);
 const createNewDeepgramLive = (dg) =>
   dg.transcription.live({
     language: "en",
