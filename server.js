@@ -1,6 +1,6 @@
 import path from "path";
 import { fileURLToPath } from "url";
-import 'dotenv/config'
+import "dotenv/config";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -51,15 +51,22 @@ const createWebsocket = () => {
   });
 };
 
-const createNewDeepgram = () =>
-  new Deepgram(process.env.DEEPGRAM_API_KEY);
+const createNewDeepgram = () => new Deepgram(process.env.DEEPGRAM_API_KEY);
 const createNewDeepgramLive = (dg) =>
   dg.transcription.live({
     language: "en",
-    punctuate: true,
     smart_format: true,
     model: "nova",
+    diarize: true,
   });
+
+// dg.transcription.live({
+//   language: "de",
+//   smart_format: true,
+//   model: "general",
+//   tier: "enhanced",
+//   diarize: true,
+// });
 
 const addDeepgramTranscriptListener = (dg) => {
   dg.addListener("transcriptReceived", async (dgOutput) => {
