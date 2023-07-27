@@ -60,14 +60,6 @@ const createNewDeepgramLive = (dg) =>
     diarize: true,
   });
 
-// dg.transcription.live({
-//   language: "de",
-//   smart_format: true,
-//   model: "general",
-//   tier: "enhanced",
-//   diarize: true,
-// });
-
 const addDeepgramTranscriptListener = (dg) => {
   dg.addListener("transcriptReceived", async (dgOutput) => {
     let dgJSON = JSON.parse(dgOutput);
