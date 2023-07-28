@@ -94,7 +94,7 @@ body {
 }
 
 .captions {
-  font: 2.2rem/1.25 Verdana, Geneva, Tahoma, sans-serif;
+  font: 3.2rem/1.25 Verdana, Geneva, Tahoma, sans-serif;
   /* font-family: ; */
   text-transform: uppercase;
   text-align: center;
@@ -107,7 +107,7 @@ body {
 
 .captions span {
   display: inline-block;
-  line-height: 3rem;
+  line-height: 4rem;
   padding: 1rem;
   color: white;
   background-color: rgba(0, 0, 0, 0.3);
