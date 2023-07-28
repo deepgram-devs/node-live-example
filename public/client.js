@@ -1,24 +1,63 @@
-let socket;
-let mediaRecorder;
+const captions = window.document.getElementById("captions");
 
-window.addEventListener("load", function () {
-  navigator.mediaDevices
-    .getUserMedia({ audio: true })
-    .then((stream) => {
-      mediaRecorder = new MediaRecorder(stream);
-      socket = io((options = { transports: ["websocket"] }));
-    })
-    .then(() => {
-      socket.on("connect", async () => {
-        if (mediaRecorder.state == "inactive") mediaRecorder.start(500);
+async function getMicrophone() {
+  const userMedia = await navigator.mediaDevices.getUserMedia({
+    audio: true,
+  });
 
-        mediaRecorder.addEventListener("dataavailable", (event) => {
-          socket.emit("packet-sent", event.data);
-        });
+  return new MediaRecorder(userMedia);
+}
 
-        socket.addEventListener("print-transcript", (msg) => {
-          document.getElementById("message-body").innerText += "\n" + msg;
-        });
-      });
-    });
+async function openMicrophone(microphone, socket) {
+  await microphone.start(500);
+
+  microphone.onstart = () => {
+    console.log("client: microphone opened");
+    document.body.classList.add("recording");
+  };
+
+  microphone.onstop = () => {
+    console.log("client: microphone closed");
+    document.body.classList.remove("recording");
+  };
+
+  microphone.ondataavailable = (e) => {
+    console.log("client: sent data to websocket");
+    socket.emit("packet-sent", e.data);
+  };
+}
+
+async function closeMicrophone(microphone) {
+  microphone.stop();
+}
+
+async function start(socket) {
+  const listenButton = document.getElementById("record");
+  let microphone;
+
+  console.log("client: waiting to open microphone");
+
+  listenButton.addEventListener("click", async () => {
+    if (!microphone) {
+      // open and close the microphone
+      microphone = await getMicrophone();
+      await openMicrophone(microphone, socket);
+    } else {
+      await closeMicrophone(microphone);
+      microphone = undefined;
+    }
+  });
+}
+
+window.addEventListener("load", () => {
+  const socket = io((options = { transports: ["websocket"] }));
+
+  socket.on("connect", async () => {
+    console.log("client: connected to websocket");
+    await start(socket);
+  });
+
+  socket.on("transcript", (transcript) => {
+    captions.innerHTML = transcript ? `<span>${transcript}</span>` : "";
+  });
 });
