@@ -1,110 +1,103 @@
-import path from "path";
-import { fileURLToPath } from "url";
-import 'dotenv/config'
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-import express from "express";
-import { createServer } from "http";
-import { Server } from "socket.io";
+const express = require("express");
+const http = require("http");
+const { Server } = require("socket.io");
+const { Deepgram } = require("@deepgram/sdk");
+const dotenv = require("dotenv");
+dotenv.config();
 
 const app = express();
-app.use(express.static("public/"));
-app.get("/", function (req, res) {
-  res.sendFile(__dirname + "/index.html");
-});
-const httpServer = createServer(app);
+const server = http.createServer(app);
+const io = new Server(server);
+const client = new Deepgram(process.env.DEEPGRAM_API_KEY);
+let keepAlive;
 
-import pkg from "@deepgram/sdk";
-const { Deepgram } = pkg;
-let deepgram;
-let dgLiveObj;
-let io;
-// make socket global so we can access it from anywhere
-let globalSocket;
-
-// Pull out connection logic so we can call it outside of the socket connection event
-const initDgConnection = (disconnect) => {
-  dgLiveObj = createNewDeepgramLive(deepgram);
-  addDeepgramTranscriptListener(dgLiveObj);
-  addDeepgramOpenListener(dgLiveObj);
-  addDeepgramCloseListener(dgLiveObj);
-  addDeepgramErrorListener(dgLiveObj);
-  // clear event listeners
-  if (disconnect) {
-    globalSocket.removeAllListeners();
-  }
-  // receive data from client and send to dgLive
-  globalSocket.on("packet-sent", async (event) =>
-    dgPacketResponse(event, dgLiveObj)
-  );
-};
-
-const createWebsocket = () => {
-  io = new Server(httpServer, { transports: "websocket" });
-  io.on("connection", (socket) => {
-    console.log(`Connected on server side with ID: ${socket.id}`);
-    globalSocket = socket;
-    deepgram = createNewDeepgram();
-    initDgConnection(false);
-  });
-};
-
-const createNewDeepgram = () =>
-  new Deepgram(process.env.DEEPGRAM_API_KEY);
-const createNewDeepgramLive = (dg) =>
-  dg.transcription.live({
+const setupDeepgram = (socket) => {
+  const deepgram = client.transcription.live({
     language: "en",
     punctuate: true,
     smart_format: true,
     model: "nova",
   });
 
-const addDeepgramTranscriptListener = (dg) => {
-  dg.addListener("transcriptReceived", async (dgOutput) => {
-    let dgJSON = JSON.parse(dgOutput);
-    let utterance;
-    try {
-      utterance = dgJSON.channel.alternatives[0].transcript;
-    } catch (error) {
-      console.log(
-        "WARNING: parsing dgJSON failed. Response from dgLive is:",
-        error
-      );
-      console.log(dgJSON);
+  if (keepAlive) clearInterval(keepAlive);
+  keepAlive = setInterval(() => {
+    console.log("deepgram: keepalive");
+    deepgram.keepAlive();
+  }, 10 * 1000);
+
+  deepgram.addListener("open", async () => {
+    console.log("deepgram: connected");
+
+    deepgram.addListener("close", async () => {
+      console.log("deepgram: disconnected");
+      clearInterval(keepAlive);
+      deepgram.finish();
+    });
+
+    deepgram.addListener("error", async (error) => {
+      console.log("deepgram: error recieved");
+      console.error(error);
+    });
+
+    deepgram.addListener("transcriptReceived", (packet) => {
+      console.log("deepgram: packet received");
+      const data = JSON.parse(packet);
+      const { type } = data;
+      switch (type) {
+        case "Results":
+          console.log("deepgram: transcript received");
+          const transcript = data.channel.alternatives[0].transcript ?? "";
+          console.log("socket: transcript sent to client");
+          socket.emit("transcript", transcript);
+          break;
+        case "Metadata":
+          console.log("deepgram: metadata received");
+          break;
+        default:
+          console.log("deepgram: unknown packet received");
+          break;
+      }
+    });
+  });
+
+  return deepgram;
+};
+
+io.on("connection", (socket) => {
+  console.log("socket: client connected");
+  let deepgram = setupDeepgram(socket);
+
+  socket.on("packet-sent", (data) => {
+    console.log("socket: client data received");
+
+    if (deepgram.getReadyState() === 1 /* OPEN */) {
+      console.log("socket: data sent to deepgram");
+      deepgram.send(data);
+    } else if (deepgram.getReadyState() >= 2 /* 2 = CLOSING, 3 = CLOSED */) {
+      console.log("socket: data couldn't be sent to deepgram");
+      console.log("socket: retrying connection to deepgram");
+      /* Attempt to reopen the Deepgram connection */
+      deepgram.finish();
+      deepgram.removeAllListeners();
+      deepgram = setupDeepgram(socket);
+    } else {
+      console.log("socket: data couldn't be sent to deepgram");
     }
-    if (utterance) {
-      globalSocket.emit("print-transcript", utterance);
-      console.log(`NEW UTTERANCE: ${utterance}`);
-    }
   });
-};
 
-const addDeepgramOpenListener = (dg) => {
-  dg.addListener("open", async (msg) =>
-    console.log(`dgLive WEBSOCKET CONNECTION OPEN!`)
-  );
-};
-
-const addDeepgramCloseListener = (dg) => {
-  dg.addListener("close", async (msg) => {
-    console.log(`dgLive CONNECTION CLOSED!`);
+  socket.on("disconnect", () => {
+    console.log("socket: client disconnected");
+    deepgram.finish();
+    deepgram.removeAllListeners();
+    deepgram = null;
   });
-};
+});
 
-const addDeepgramErrorListener = (dg) => {
-  dg.addListener("error", async (msg) => {
-    console.log("ERROR MESG", msg);
-    console.log(`dgLive ERROR::Type:${msg.type} / Code:${msg.code}`);
-  });
-};
+app.use(express.static("public/"));
+app.get("/", (req, res) => {
+  res.sendFile(__dirname + "/public/index.html");
+});
 
-const dgPacketResponse = (event, dg) => {
-  if (dg.getReadyState() === 1) {
-    dg.send(event);
-  }
-};
-
-httpServer.listen(3000);
-createWebsocket();
+server.listen(3000, () => {
+  console.log("listening on localhost:3000");
+});
