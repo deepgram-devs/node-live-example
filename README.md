@@ -20,7 +20,7 @@ The server code creates a new web socket called `globalSocket` that communicates
 
 ## Running the application locally
 
-Create a `.env` file with your own DeepGram API Key.
+Create a `.env` file with your own Deepgram API Key.
 
 Run the following commands to install the dependencies and run the application
 
