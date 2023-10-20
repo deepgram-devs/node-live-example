@@ -1,4 +1,6 @@
-# Deepgram Live Transcriptions Example
+# Deepgram Live Transcriptions Example (Node.js)
+
+ALPHA
 
 This is a basic express server that shows the basic setup for live audio transcriptions using Deepgram.
 
@@ -26,7 +28,7 @@ Run the following commands to install the dependencies and run the application
 
 ```
 npm i
-npm run start
+npm run dev
 ```
 
 ## Accessing the running application in your browser

@@ -58,6 +58,7 @@ window.addEventListener("load", () => {
   });
 
   socket.on("transcript", (transcript) => {
-    captions.innerHTML = transcript ? `<span>${transcript}</span>` : "";
+    if (transcript !== "")
+      captions.innerHTML = transcript ? `<span>${transcript}</span>` : "";
   });
 });
