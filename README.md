@@ -1,4 +1,6 @@
-# Deepgram Live Transcriptions Example
+# Deepgram Live Transcriptions Example (Node.js)
+
+ALPHA
 
 This is a basic express server that shows the basic setup for live audio transcriptions using Deepgram.
 
@@ -12,7 +14,7 @@ The code can be found in the following places:
 
 This code gets access to the users microphone which will be used as the audio input. Once data is available from the microphone, it gets sent to the server via websocket.
 
-When data comes back from the server on the `print-transcript` event, it takes the text and adds it to the body.
+When data comes back from the server on the `data` event, it takes the text and adds it to the body.
 
 ## Server code
 
@@ -26,7 +28,7 @@ Run the following commands to install the dependencies and run the application
 
 ```
 npm i
-npm run start
+npm run dev
 ```
 
 ## Accessing the running application in your browser

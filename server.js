@@ -1,18 +1,18 @@
 const express = require("express");
 const http = require("http");
 const { Server } = require("socket.io");
-const { Deepgram } = require("@deepgram/sdk");
+const { createClient, LiveTranscriptionEvents } = require("@deepgram/sdk");
 const dotenv = require("dotenv");
 dotenv.config();
 
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
-const client = new Deepgram(process.env.DEEPGRAM_API_KEY);
+const deepgramClient = createClient(process.env.DEEPGRAM_API_KEY);
 let keepAlive;
 
 const setupDeepgram = (socket) => {
-  const deepgram = client.transcription.live({
+  const deepgram = deepgramClient.listen.live({
     language: "en",
     punctuate: true,
     smart_format: true,
@@ -25,38 +25,40 @@ const setupDeepgram = (socket) => {
     deepgram.keepAlive();
   }, 10 * 1000);
 
-  deepgram.addListener("open", async () => {
+  deepgram.addListener(LiveTranscriptionEvents.Open, async () => {
     console.log("deepgram: connected");
 
-    deepgram.addListener("close", async () => {
+    deepgram.addListener(LiveTranscriptionEvents.Close, async () => {
       console.log("deepgram: disconnected");
       clearInterval(keepAlive);
       deepgram.finish();
     });
 
-    deepgram.addListener("error", async (error) => {
+    deepgram.addListener(LiveTranscriptionEvents.Error, async (error) => {
       console.log("deepgram: error recieved");
       console.error(error);
     });
 
-    deepgram.addListener("transcriptReceived", (packet) => {
+    deepgram.addListener(LiveTranscriptionEvents.Warning, async (warning) => {
+      console.log("deepgram: warning recieved");
+      console.warn(warning);
+    });
+
+    deepgram.addListener(LiveTranscriptionEvents.Transcript, (data) => {
       console.log("deepgram: packet received");
-      const data = JSON.parse(packet);
-      const { type } = data;
-      switch (type) {
-        case "Results":
-          console.log("deepgram: transcript received");
-          const transcript = data.channel.alternatives[0].transcript ?? "";
-          console.log("socket: transcript sent to client");
-          socket.emit("transcript", transcript);
-          break;
-        case "Metadata":
-          console.log("deepgram: metadata received");
-          break;
-        default:
-          console.log("deepgram: unknown packet received");
-          break;
-      }
+      console.log("deepgram: transcript received");
+      const transcript = data.channel.alternatives[0].transcript ?? "";
+      console.log("socket: transcript sent to client");
+      socket.emit("transcript", transcript);
+      console.log("socket: transcript data sent to client");
+      socket.emit("data", data);
+    });
+
+    deepgram.addListener(LiveTranscriptionEvents.Metadata, (data) => {
+      console.log("deepgram: packet received");
+      console.log("deepgram: metadata received");
+      console.log("socket: metadata sent to client");
+      socket.emit("metadata", data);
     });
   });
 
