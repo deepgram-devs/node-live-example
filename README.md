@@ -14,7 +14,7 @@ The code can be found in the following places:
 
 This code gets access to the users microphone which will be used as the audio input. Once data is available from the microphone, it gets sent to the server via websocket.
 
-When data comes back from the server on the `print-transcript` event, it takes the text and adds it to the body.
+When data comes back from the server on the `data` event, it takes the text and adds it to the body.
 
 ## Server code
 
