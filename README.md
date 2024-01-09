@@ -28,7 +28,7 @@ Run the following commands to install the dependencies and run the application
 
 ```
 npm i
-npm run dev
+npm run start
 ```
 
 ## Accessing the running application in your browser
