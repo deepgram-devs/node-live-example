@@ -3,7 +3,7 @@ const captions = window.document.getElementById("captions");
 async function getMicrophone() {
   try {
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    return new MediaRecorder(stream, { mimeType: "audio/webm" });
+    return new MediaRecorder(stream);
   } catch (error) {
     console.error("Error accessing microphone:", error);
     throw error;
