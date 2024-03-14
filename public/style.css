@@ -98,25 +98,27 @@ body {
   text-transform: uppercase;
   text-align: center;
   font-weight: 400;
-  position: absolute;
+  position: fixed; /* Changed from absolute to fixed to help prevent overlap */
   left: 50%;
   transform: translate(-50%, 0);
+  width: calc(100% - 40px); /* Ensuring it doesn't stretch beyond viewport width */
+  box-sizing: border-box;
 }
 
 .captions span, .translated-captions span {
   display: inline-block;
-  line-height: 2rem; /* Adjusted line height */
-  padding: 0.5rem; /* Adjusted padding */
+  line-height: 2rem;
+  padding: 0.5rem;
   color: white;
   background-color: rgba(0, 0, 0, 0.3);
 }
 
 .captions {
-  bottom: 10rem;
+  bottom: 20%;
 }
 
 .translated-captions {
-  bottom: 5rem;
+  bottom: 10%;
 }
 
 

@@ -13,7 +13,10 @@ const wss = new WebSocket.Server({ server });
 const deepgramClient = createClient(process.env.DEEPGRAM_API_KEY);
 let keepAlive;
 
-// Translation request options
+// translation constants
+const SOURCE_LANGUAGE = "en-us"
+const TARGET_LANGUAGE = "es-ar"
+
 const translationRequestOptions = {
   hostname: 'agw.golinguist.com',
   path: '/linguistnow/resources/v1/translate',
@@ -46,11 +49,10 @@ const setupDeepgram = (ws) => {
       console.log("deepgram: transcript received");
       sourceLanguageText = data.channel.alternatives[0].transcript
       if (sourceLanguageText) {
-        // Code for making the API request to agw.golinguist.com should go here and translation result will be added to `data` object
         const postData = JSON.stringify({
           sourceContent: sourceLanguageText,
-          sourceLocale: "en-us",
-          targetLocale: "es-ar",
+          sourceLocale: SOURCE_LANGUAGE,
+          targetLocale: TARGET_LANGUAGE,
           contentTypeName: "api",
           translationType: "machine",
           textType: "text"
