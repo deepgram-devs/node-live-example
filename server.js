@@ -1,5 +1,6 @@
 const express = require("express");
 const http = require("http");
+const https = require('https');
 const WebSocket = require("ws");
 const { createClient, LiveTranscriptionEvents } = require("@deepgram/sdk");
 const dotenv = require("dotenv");
@@ -11,6 +12,17 @@ const wss = new WebSocket.Server({ server });
 
 const deepgramClient = createClient(process.env.DEEPGRAM_API_KEY);
 let keepAlive;
+
+// Translation request options
+const translationRequestOptions = {
+  hostname: 'agw.golinguist.com',
+  path: '/linguistnow/resources/v1/translate',
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'x-api-key': process.env.LANGUAGE_IO_API_KEY,
+  }
+};
 
 const setupDeepgram = (ws) => {
   const deepgram = deepgramClient.listen.live({
@@ -32,8 +44,49 @@ const setupDeepgram = (ws) => {
     deepgram.addListener(LiveTranscriptionEvents.Transcript, (data) => {
       console.log("deepgram: packet received");
       console.log("deepgram: transcript received");
-      console.log("socket: transcript sent to client");
-      ws.send(JSON.stringify(data));
+      sourceLanguageText = data.channel.alternatives[0].transcript
+      if (sourceLanguageText) {
+        // Code for making the API request to agw.golinguist.com should go here and translation result will be added to `data` object
+        const postData = JSON.stringify({
+          sourceContent: sourceLanguageText,
+          sourceLocale: "en-us",
+          targetLocale: "es-ar",
+          contentTypeName: "api",
+          translationType: "machine",
+          textType: "text"
+        });
+
+        translationRequestOptions.headers['Content-Length'] = Buffer.byteLength(postData);
+
+        const req = https.request(translationRequestOptions, (res) => {
+          let body = '';
+          res.on('data', (chunk) => {
+            body += chunk;
+          });
+          res.on('end', () => {
+            try {
+              const resp = JSON.parse(body);
+              data.translatedTranscript = resp.translatedText;
+              console.log("Received translation back: ", resp.translatedText);
+              ws.send(JSON.stringify(data));
+              console.log("socket: transcript and translation sent to client");
+            } catch (e) {
+              console.error('Error parsing translation response:', e);
+            }
+          });
+        });
+
+        req.on('error', (error) => {
+          console.error('Translation request error:', error);
+        });
+
+        req.write(postData);
+        req.end();
+      } else {
+        ws.send(JSON.stringify(data));
+        console.log("socket: only transcript sent to client");
+      }
+      
     });
 
     deepgram.addListener(LiveTranscriptionEvents.Close, async () => {

@@ -1,4 +1,5 @@
 const captions = window.document.getElementById("captions");
+const translatedCaptions = window.document.getElementById("translated-captions");
 
 async function getMicrophone() {
   try {
@@ -71,6 +72,9 @@ window.addEventListener("load", () => {
     if (data.channel.alternatives[0].transcript !== "") {
       captions.innerHTML = data
         ? `<span>${data.channel.alternatives[0].transcript}</span>`
+        : "";
+      translatedCaptions.innerHTML = data
+        ? `<span>${data.translatedTranscript}</span>`
         : "";
     }
   });

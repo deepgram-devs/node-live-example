@@ -93,22 +93,30 @@ body {
   margin: 21px;
 }
 
-.captions {
-  font: 3.2rem/1.25 Verdana, Geneva, Tahoma, sans-serif;
-  /* font-family: ; */
+.captions, .translated-captions {
+  font: 1.6rem/1.25 Verdana, Geneva, Tahoma, sans-serif; /* Reduced font size */
   text-transform: uppercase;
   text-align: center;
   font-weight: 400;
   position: absolute;
-  bottom: 1rem;
   left: 50%;
   transform: translate(-50%, 0);
 }
 
-.captions span {
+.captions span, .translated-captions span {
   display: inline-block;
-  line-height: 4rem;
-  padding: 1rem;
+  line-height: 2rem; /* Adjusted line height */
+  padding: 0.5rem; /* Adjusted padding */
   color: white;
   background-color: rgba(0, 0, 0, 0.3);
 }
+
+.captions {
+  bottom: 10rem;
+}
+
+.translated-captions {
+  bottom: 5rem;
+}
+
+
