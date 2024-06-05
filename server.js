@@ -13,9 +13,25 @@ const wss = new WebSocket.Server({ server });
 const deepgramClient = createClient(process.env.DEEPGRAM_API_KEY);
 let keepAlive;
 
+let TTS_API = 'https://api.deepgram.com/v1/speak';
+
+async function getTextToSpeech(message, voice){
+  // console.log('voice: ', voice)
+  const tts_endpoint = TTS_API + '?model='+ voice;
+  const response = await fetch(tts_endpoint, {
+    method: 'POST',
+    headers: {
+      'authorization': `token ${process.env.DEEPGRAM_API_KEY}`,
+      'content-type': 'application/json'
+    },
+    body: JSON.stringify({text: message})
+  });
+  return response.blob();
+}
+
 // translation constants
-const SOURCE_LANGUAGE = "en-us"
-const TARGET_LANGUAGE = "es-ar"
+const SOURCE_LANGUAGE = "es-ar"
+const TARGET_LANGUAGE = "en-us"
 
 const translationRequestOptions = {
   hostname: 'agw.golinguist.com',
@@ -29,7 +45,7 @@ const translationRequestOptions = {
 
 const setupDeepgram = (ws) => {
   const deepgram = deepgramClient.listen.live({
-    language: "en",
+    language: "es",
     punctuate: true,
     smart_format: true,
     model: "nova",
@@ -45,8 +61,8 @@ const setupDeepgram = (ws) => {
     console.log("deepgram: connected");
 
     deepgram.addListener(LiveTranscriptionEvents.Transcript, (data) => {
-      console.log("deepgram: packet received");
-      console.log("deepgram: transcript received");
+      // console.log("deepgram: packet received");
+      // console.log("deepgram: transcript received");
       sourceLanguageText = data.channel.alternatives[0].transcript
       if (sourceLanguageText) {
         const postData = JSON.stringify({
@@ -71,7 +87,7 @@ const setupDeepgram = (ws) => {
               data.translatedTranscript = resp.translatedText;
               console.log("Received translation back: ", resp.translatedText);
               ws.send(JSON.stringify(data));
-              console.log("socket: transcript and translation sent to client");
+              // console.log("socket: transcript and translation sent to client");
             } catch (e) {
               console.error('Error parsing translation response:', e);
             }
@@ -86,7 +102,7 @@ const setupDeepgram = (ws) => {
         req.end();
       } else {
         ws.send(JSON.stringify(data));
-        console.log("socket: only transcript sent to client");
+        // console.log("socket: only transcript sent to client");
       }
       
     });
@@ -108,9 +124,9 @@ const setupDeepgram = (ws) => {
     });
 
     deepgram.addListener(LiveTranscriptionEvents.Metadata, (data) => {
-      console.log("deepgram: packet received");
-      console.log("deepgram: metadata received");
-      console.log("ws: metadata sent to client");
+      // console.log("deepgram: packet received");
+      // console.log("deepgram: metadata received");
+      // console.log("ws: metadata sent to client");
       ws.send(JSON.stringify({ metadata: data }));
     });
   });
@@ -123,10 +139,10 @@ wss.on("connection", (ws) => {
   let deepgram = setupDeepgram(ws);
 
   ws.on("message", (message) => {
-    console.log("socket: client data received");
+    // console.log("socket: client data received");
 
     if (deepgram.getReadyState() === 1 /* OPEN */) {
-      console.log("socket: data sent to deepgram");
+      // console.log("socket: data sent to deepgram");
       deepgram.send(message);
     } else if (deepgram.getReadyState() >= 2 /* 2 = CLOSING, 3 = CLOSED */) {
       console.log("socket: data couldn't be sent to deepgram");
@@ -151,6 +167,29 @@ wss.on("connection", (ws) => {
 app.use(express.static("public/"));
 app.get("/", (req, res) => {
   res.sendFile(__dirname + "/public/index.html");
+});
+
+app.get("/speak", async (req, res) => {
+  console.log('Speak');
+  // Respond with error if no API Key set
+  if(!process.env.DEEPGRAM_API_KEY){
+    res.status(500).send({ err: 'No DEEPGRAM_API_KEY set in the .env file' });
+    return;
+  }
+  let text = req.query.text;
+  let voice = req.query.voice;
+
+  try {
+    let response = await getTextToSpeech(text, voice);
+
+    res.type(response.type)
+    response.arrayBuffer().then((buf) => {
+        res.send(Buffer.from(buf))
+    });
+  } catch (err) {
+    console.log(err);
+    res.status(500).send({ err: err.message ? err.message : err });
+  }
 });
 
 server.listen(3000, () => {

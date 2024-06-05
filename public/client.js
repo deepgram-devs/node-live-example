@@ -1,5 +1,32 @@
 const captions = window.document.getElementById("captions");
 const translatedCaptions = window.document.getElementById("translated-captions");
+const apiOrigin = "http://localhost:3000";
+
+async function updateAudio(text, voice){
+  audioElm = document.createElement('audio');
+  audioElm.setAttribute('controls', '');
+  audioElm.setAttribute('autoplay', 'true');
+  let source = document.createElement('source');
+
+  let response = await getAudioForText(text, voice);
+  let data = await response.blob();
+  const url = URL.createObjectURL(data);
+  source.setAttribute('src', url);
+
+  source.setAttribute('type', 'audio/mp3');
+
+  audioElm.appendChild(source);
+
+  audio_file.innerHTML = '';
+  audio_file.appendChild(audioElm);
+  audioElm.play();
+}
+
+async function getAudioForText(text, voice){
+  const url = apiOrigin + '/speak?text=' + text + '&voice=' + voice;
+
+  return await fetch(url)
+}
 
 async function getMicrophone() {
   try {
@@ -69,9 +96,11 @@ window.addEventListener("load", () => {
 
   socket.addEventListener("message", (event) => {
     const data = JSON.parse(event.data);
-    if (data.channel.alternatives[0].transcript !== "") {
+    const transcript = data.channel.alternatives[0].transcript;
+    if (transcript !== "") {
+      updateAudio(data.translatedTranscript, 'aura-angus-en');
       captions.innerHTML = data
-        ? `<span>${data.channel.alternatives[0].transcript}</span>`
+        ? `<span>${transcript}</span>`
         : "";
       translatedCaptions.innerHTML = data
         ? `<span>${data.translatedTranscript}</span>`
