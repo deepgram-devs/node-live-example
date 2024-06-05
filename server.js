@@ -48,7 +48,7 @@ const setupDeepgram = (ws) => {
     language: "es",
     punctuate: true,
     smart_format: true,
-    model: "nova",
+    model: "nova-2",
   });
 
   if (keepAlive) clearInterval(keepAlive);

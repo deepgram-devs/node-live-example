@@ -98,7 +98,7 @@ window.addEventListener("load", () => {
     const data = JSON.parse(event.data);
     const transcript = data.channel.alternatives[0].transcript;
     if (transcript !== "") {
-      updateAudio(data.translatedTranscript, 'aura-angus-en');
+      updateAudio(data.translatedTranscript, 'aura-asteria-en');
       captions.innerHTML = data
         ? `<span>${transcript}</span>`
         : "";
