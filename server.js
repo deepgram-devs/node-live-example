@@ -30,7 +30,9 @@ async function getTextToSpeech(message, voice){
 }
 
 // translation constants
-const SOURCE_LANGUAGE = "es-ar"
+const SOURCE_LANGUAGE = "es-es"
+// const SOURCE_LANGUAGE = "fr-fr"
+// const SOURCE_LANGUAGE = "pr-br-fr"
 const TARGET_LANGUAGE = "en-us"
 
 const translationRequestOptions = {
@@ -48,6 +50,7 @@ const setupDeepgram = (ws) => {
     language: "es",
     punctuate: true,
     smart_format: true,
+    endpointing: 300,
     model: "nova-2",
   });
 
@@ -62,47 +65,54 @@ const setupDeepgram = (ws) => {
 
     deepgram.addListener(LiveTranscriptionEvents.Transcript, (data) => {
       // console.log("deepgram: packet received");
-      // console.log("deepgram: transcript received");
       sourceLanguageText = data.channel.alternatives[0].transcript
-      if (sourceLanguageText) {
-        const postData = JSON.stringify({
-          sourceContent: sourceLanguageText,
-          sourceLocale: SOURCE_LANGUAGE,
-          targetLocale: TARGET_LANGUAGE,
-          contentTypeName: "api",
-          translationType: "machine",
-          textType: "text"
-        });
-
-        translationRequestOptions.headers['Content-Length'] = Buffer.byteLength(postData);
-
-        const req = https.request(translationRequestOptions, (res) => {
-          let body = '';
-          res.on('data', (chunk) => {
-            body += chunk;
+      console.log('sourceLanguageText:', sourceLanguageText, 'data.speech_final:', data.speech_final, 'data.is_final:',data.is_final)
+      if(data.speech_final && sourceLanguageText != ''){
+        console.log("deepgram: transcript received: ", sourceLanguageText);
+        if (sourceLanguageText) {
+          const postData = JSON.stringify({
+            sourceContent: sourceLanguageText,
+            sourceLocale: SOURCE_LANGUAGE,
+            targetLocale: TARGET_LANGUAGE,
+            contentTypeName: "api",
+            translationType: "machine",
+            textType: "text"
           });
-          res.on('end', () => {
-            try {
-              const resp = JSON.parse(body);
-              data.translatedTranscript = resp.translatedText;
-              console.log("Received translation back: ", resp.translatedText);
-              ws.send(JSON.stringify(data));
-              // console.log("socket: transcript and translation sent to client");
-            } catch (e) {
-              console.error('Error parsing translation response:', e);
-            }
+
+          translationRequestOptions.headers['Content-Length'] = Buffer.byteLength(postData);
+
+          let start = performance.now();
+          const req = https.request(translationRequestOptions, (res) => {
+            let body = '';
+            res.on('data', (chunk) => {
+              body += chunk;
+            });
+            res.on('end', () => {
+              try {
+                let end = performance.now();
+                let duration = end - start;
+                console.log('Translation Took: '+parseInt(duration)+'ms')
+                const resp = JSON.parse(body);
+                data.translatedTranscript = resp.translatedText;
+                console.log("Received translation back: ", resp.translatedText);
+                ws.send(JSON.stringify(data));
+                // console.log("socket: transcript and translation sent to client");
+              } catch (e) {
+                console.error('Error parsing translation response:', e);
+              }
+            });
           });
-        });
 
-        req.on('error', (error) => {
-          console.error('Translation request error:', error);
-        });
+          req.on('error', (error) => {
+            console.error('Translation request error:', error);
+          });
 
-        req.write(postData);
-        req.end();
-      } else {
-        ws.send(JSON.stringify(data));
-        // console.log("socket: only transcript sent to client");
+          req.write(postData);
+          req.end();
+        } else {
+          ws.send(JSON.stringify(data));
+          // console.log("socket: only transcript sent to client");
+        }
       }
       
     });
@@ -180,7 +190,11 @@ app.get("/speak", async (req, res) => {
   let voice = req.query.voice;
 
   try {
+    let start = performance.now();
     let response = await getTextToSpeech(text, voice);
+    let end = performance.now();
+    let duration = end - start;
+    console.log('Text to Speech Took: '+parseInt(duration)+'ms')
 
     res.type(response.type)
     response.arrayBuffer().then((buf) => {
