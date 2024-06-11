@@ -67,9 +67,9 @@ const setupDeepgram = (ws) => {
 
     deepgram.addListener(LiveTranscriptionEvents.Transcript, (data) => {
       // console.log("deepgram: packet received");
-      console.log('sourceLanguageText:', sourceLanguageText, 'data.speech_final:', data.speech_final, 'data.is_final:',data.is_final)
       if(data.is_final && sourceLanguageText != ''){
         sentence = data.channel.alternatives[0].transcript
+        console.log('transcript:', sentence, 'data.speech_final:', data.speech_final, 'data.is_final:',data.is_final)
         is_finals.push(sentence);
         if (data.speech_final) {
           sourceLanguageText = is_finals.join(" ");
