@@ -1,31 +1,52 @@
 const captions = window.document.getElementById("captions");
 const translatedCaptions = window.document.getElementById("translated-captions");
 const apiOrigin = "http://localhost:3000";
+let audioQueue = [];
+let textQueue = [];
+let isPlaying = false;
 
-async function updateAudio(text, voice){
-  audioElm = document.createElement('audio');
-  audioElm.setAttribute('controls', '');
-  audioElm.setAttribute('autoplay', 'true');
-  let source = document.createElement('source');
-
-  let response = await getAudioForText(text, voice);
+async function updateAudioAndText(originalText, translatedText, voice, startTime) {
+  let response = await getAudioForText(translatedText, voice);
   let data = await response.blob();
   const url = URL.createObjectURL(data);
-  source.setAttribute('src', url);
 
-  source.setAttribute('type', 'audio/mp3');
+  audioQueue.push({ url, startTime });
+  textQueue.push({ originalText, translatedText, startTime });
+  playNextAudioAndText();
+}
 
-  audioElm.appendChild(source);
+async function getAudioForText(text, voice) {
+  const url = apiOrigin + '/speak?text=' + text + '&voice=' + voice;
+  return await fetch(url);
+}
+
+function playNextAudioAndText() {
+  if (isPlaying || audioQueue.length === 0) return;
+
+  // Sort queues by startTime
+  audioQueue.sort((a, b) => a.startTime - b.startTime);
+  textQueue.sort((a, b) => a.startTime - b.startTime);
+
+  isPlaying = true;
+  const { url } = audioQueue.shift();
+  const { originalText, translatedText } = textQueue.shift();
+  const audioElm = document.createElement('audio');
+  audioElm.setAttribute('controls', '');
+  audioElm.setAttribute('autoplay', 'true');
+  audioElm.src = url;
+
+  audioElm.onended = () => {
+    isPlaying = false;
+    playNextAudioAndText();
+  };
 
   audio_file.innerHTML = '';
   audio_file.appendChild(audioElm);
   audioElm.play();
-}
 
-async function getAudioForText(text, voice){
-  const url = apiOrigin + '/speak?text=' + text + '&voice=' + voice;
-
-  return await fetch(url)
+  // Update captions
+  captions.innerHTML = originalText ? `<span>${originalText}</span>` : "";
+  translatedCaptions.innerHTML = translatedText ? `<span>${translatedText}</span>` : "";
 }
 
 async function getMicrophone() {
@@ -57,7 +78,7 @@ async function openMicrophone(microphone, socket) {
       }
     };
 
-    microphone.start(1000);
+    microphone.start(200);
   });
 }
 
@@ -96,15 +117,10 @@ window.addEventListener("load", () => {
 
   socket.addEventListener("message", (event) => {
     const data = JSON.parse(event.data);
-    const transcript = data.channel.alternatives[0].transcript;
-    if (transcript !== "") {
-      updateAudio(data.translatedTranscript, 'aura-asteria-en');
-      captions.innerHTML = data
-        ? `<span>${transcript}</span>`
-        : "";
-      translatedCaptions.innerHTML = data
-        ? `<span>${data.translatedTranscript}</span>`
-        : "";
+    const originalTranscript = data.channel.alternatives[0].transcript;
+    const startTime = data.start;
+    if (originalTranscript !== "") {
+      updateAudioAndText(originalTranscript, data.translatedTranscript, 'aura-asteria-en', startTime);
     }
   });
 

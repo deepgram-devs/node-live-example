@@ -67,7 +67,7 @@ const setupDeepgram = (ws) => {
       // console.log("deepgram: packet received");
       sourceLanguageText = data.channel.alternatives[0].transcript
       console.log('sourceLanguageText:', sourceLanguageText, 'data.speech_final:', data.speech_final, 'data.is_final:',data.is_final)
-      if(data.speech_final && sourceLanguageText != ''){
+      if(data.is_final && sourceLanguageText != ''){
         console.log("deepgram: transcript received: ", sourceLanguageText);
         if (sourceLanguageText) {
           const postData = JSON.stringify({
