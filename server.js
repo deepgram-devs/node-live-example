@@ -67,61 +67,63 @@ const setupDeepgram = (ws) => {
 
     deepgram.addListener(LiveTranscriptionEvents.Transcript, (data) => {
       // console.log("deepgram: packet received");
-      sentence = data.channel.alternatives[0].transcript
-      if(data.is_final && sentence != ''){
-        console.log('transcript:', sentence, 'data.speech_final:', data.speech_final, 'data.is_final:',data.is_final)
+      sentence = data.channel.alternatives[0].transcript;
+      if (data.is_final && sentence != '') {
+        console.log('transcript:', sentence, 'data.speech_final:', data.speech_final, 'data.is_final:', data.is_final);
         is_finals.push(sentence);
-        if (data.speech_final) {
-          sourceLanguageText = is_finals.join(" ");
-          is_finals = [];
-          console.log("deepgram: transcript received: ", sourceLanguageText);
-          if (sourceLanguageText) {
-            const postData = JSON.stringify({
-              sourceContent: sourceLanguageText,
-              sourceLocale: SOURCE_LANGUAGE,
-              targetLocale: TARGET_LANGUAGE,
-              contentTypeName: "api",
-              translationType: "machine",
-              textType: "text"
+      }
+
+      if (data.speech_final && is_finals.length > 0) {
+        sourceLanguageText = is_finals.join(" ");
+        is_finals = [];
+        console.log("deepgram: transcript received: ", sourceLanguageText);
+        if (sourceLanguageText) {
+          const postData = JSON.stringify({
+            sourceContent: sourceLanguageText,
+            sourceLocale: SOURCE_LANGUAGE,
+            targetLocale: TARGET_LANGUAGE,
+            contentTypeName: "api",
+            translationType: "machine",
+            textType: "text"
+          });
+
+          translationRequestOptions.headers['Content-Length'] = Buffer.byteLength(postData);
+
+          let start = performance.now();
+          const req = https.request(translationRequestOptions, (res) => {
+            let body = '';
+            res.on('data', (chunk) => {
+              body += chunk;
             });
-
-            translationRequestOptions.headers['Content-Length'] = Buffer.byteLength(postData);
-
-            let start = performance.now();
-            const req = https.request(translationRequestOptions, (res) => {
-              let body = '';
-              res.on('data', (chunk) => {
-                body += chunk;
-              });
-              res.on('end', () => {
-                try {
-                  let end = performance.now();
-                  let duration = end - start;
-                  console.log('Translation Took: '+parseInt(duration)+'ms')
-                  const resp = JSON.parse(body);
-                  data.translatedTranscript = resp.translatedText;
-                  console.log("Received translation back: ", resp.translatedText);
-                  ws.send(JSON.stringify(data));
-                  // console.log("socket: transcript and translation sent to client");
-                } catch (e) {
-                  console.error('Error parsing translation response:', e);
-                }
-              });
+            res.on('end', () => {
+              try {
+                let end = performance.now();
+                let duration = end - start;
+                console.log('Translation Took: ' + parseInt(duration) + 'ms');
+                const resp = JSON.parse(body);
+                data.translatedTranscript = resp.translatedText;
+                console.log("Received translation back: ", resp.translatedText);
+                ws.send(JSON.stringify(data));
+                // console.log("socket: transcript and translation sent to client");
+              } catch (e) {
+                console.error('Error parsing translation response:', e);
+              }
             });
+          });
 
-            req.on('error', (error) => {
-              console.error('Translation request error:', error);
-            });
+          req.on('error', (error) => {
+            console.error('Translation request error:', error);
+          });
 
-            req.write(postData);
-            req.end();
-          } else {
-            ws.send(JSON.stringify(data));
-            // console.log("socket: only transcript sent to client");
-          }
+          req.write(postData);
+          req.end();
+        } else {
+          ws.send(JSON.stringify(data));
+          // console.log("socket: only transcript sent to client");
         }
+      }
 
-      } else {
+      else {
         // These are useful if you need real time captioning and update what the Interim Results produced
         console.log(`Is Final: ${sentence}`);
       }
