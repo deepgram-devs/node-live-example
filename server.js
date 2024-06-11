@@ -45,6 +45,16 @@ const translationRequestOptions = {
   }
 };
 
+function getFirstEndOfSentencePunctuationIndex(str) {
+  // Define a regular expression that matches end-of-sentence punctuation
+  const regex = /[.!?]/;
+  // Search for the first match
+  const match = str.search(regex);
+  // Return the index of the first match, or -1 if no match is found
+  return match;
+}
+
+
 let is_finals = [];
 
 const setupDeepgram = (ws) => {
@@ -71,10 +81,28 @@ const setupDeepgram = (ws) => {
       if (data.is_final && sentence != '') {
         console.log('transcript:', sentence, 'data.speech_final:', data.speech_final, 'data.is_final:', data.is_final);
         is_finals.push(sentence);
+        console.log('sentence:', sentence);
       }
 
-      if (data.speech_final && is_finals.length > 0) {
-        sourceLanguageText = is_finals.join(" ");
+      let transcript_so_far = is_finals.join(" ");
+      let firstPunctuationIndex = getFirstEndOfSentencePunctuationIndex(transcript_so_far);
+      let earlyFinalize = false;
+      if(firstPunctuationIndex != -1 && !data.speech_final){
+        console.log('transcript_so_far:', transcript_so_far);
+        early_transcript = transcript_so_far.substring(0, firstPunctuationIndex+1);
+        new_transcript = transcript_so_far.substring(firstPunctuationIndex+1);
+        console.log('early_transcript:', early_transcript);
+        console.log('new_transcript:', new_transcript);
+        earlyFinalize = true;
+        is_finals = [new_transcript];
+      }
+
+      if ((data.speech_final && is_finals.length > 0) || earlyFinalize) {
+        if(earlyFinalize){
+          sourceLanguageText = early_transcript;
+        } else {
+          sourceLanguageText = is_finals.join(" ");
+        }
         is_finals = [];
         console.log("deepgram: transcript received: ", sourceLanguageText);
         if (sourceLanguageText) {
