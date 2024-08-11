@@ -79,7 +79,7 @@ wss.on("connection", (ws) => {
       /* Attempt to reopen the Deepgram connection */
       deepgram.finish();
       deepgram.removeAllListeners();
-      deepgram = setupDeepgram(socket);
+      deepgram = setupDeepgram(ws);
     } else {
       console.log("socket: data couldn't be sent to deepgram");
     }
