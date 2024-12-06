@@ -97,28 +97,27 @@ const setupDeepgram = (ws) => {
         }
       } else {
         console.log('    Interim: ', transcript);
-      }
+        const time_since_last_word = transcript_cursor - last_word_timestamp;
+        // console.log(`    Time Since Last Word: ${time_since_last_word}, Last Word: ${last_word_timestamp}, Transcript Cursor: ${transcript_cursor}`);
+        const has_words = is_finals.join(' ') != '' || transcript != '';
+        // Do we have any words?
+        if(has_words) {
+          // console.log('Has words');
+          // Do we have enough empty interim results to consider this an EOT?
+          if(empty_interim_result_count >= min_empty_interim_results){
+            // console.log('empty_interim_result_count: ', empty_interim_result_count);
+            // Do we have a timeout since the last word?
+            if (time_since_last_word >= no_word_timeout) {
 
-      const time_since_last_word = transcript_cursor - last_word_timestamp;
-      // console.log(`    Time Since Last Word: ${time_since_last_word}, Last Word: ${last_word_timestamp}, Transcript Cursor: ${transcript_cursor}`);
-      const has_words = is_finals.join(' ') != '' || transcript != '';
-      // Do we have any words?
-      if(has_words) {
-        // console.log('Has words');
-        // Do we have enough empty interim results to consider this an EOT?
-        if(empty_interim_result_count >= min_empty_interim_results){
-          // console.log('empty_interim_result_count: ', empty_interim_result_count);
-          // Do we have a timeout since the last word?
-          if (time_since_last_word >= no_word_timeout) {
-
-            // Send a finalize message to Deepgram to finalize the interim results
-            deepgram.send(JSON.stringify({'type': 'Finalize'}));
-            const utterance = is_finals.join(' ') + ' ' + transcript;
-            console.log(`Client Side EOT: ${utterance} time_since_last_word: ${time_since_last_word*1000}ms`);
-            previousTimestamp = Date.now();
-            
-            // Reset the state
-            resetState(true);
+              // Send a finalize message to Deepgram to finalize the interim results
+              deepgram.send(JSON.stringify({'type': 'Finalize'}));
+              const utterance = is_finals.join(' ') + ' ' + transcript;
+              console.log(`Client Side EOT: ${utterance} time_since_last_word: ${time_since_last_word*1000}ms`);
+              previousTimestamp = Date.now();
+              
+              // Reset the state
+              resetState(true);
+            }
           }
         }
       }
